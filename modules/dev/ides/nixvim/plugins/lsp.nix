@@ -1,0 +1,90 @@
+{...}: {
+  programs.nixvim = {
+    plugins.lsp = {
+      enable = true;
+      servers = {
+        bashls.enable = true;
+        clangd.enable = true;
+        nil_ls.enable = true;
+        jsonls.enable = true;
+        nixd.enable = true;
+        docker_compose_language_service.enable = true;
+        tilt_ls.enable = true;
+        terraform_lsp.enable = true;
+        gopls.enable = true;
+        pylsp.enable = true;
+        ruff.enable = true;
+        yamlls.enable = true;
+      };
+      keymaps = {
+        diagnostic = {
+          "gj" = "goto_next";
+          "gk" = "goto_prev";
+        };
+        lspBuf = {
+          "gd" = "definition";
+          "gD" = "references";
+          "gt" = "type_definition";
+          "gi" = "implementation";
+          "K" = "hover";
+        };
+      };
+    };
+
+    keymaps = [
+      {
+        mode = "n";
+        key = "ga";
+        action = "<cmd>:lua vim.lsp.buf.code_action({filter=function(a) return a.isPreferred end, apply=true})<CR>";
+        options.desc = "[A]pply suggested code action";
+      }
+    ];
+
+    plugins.lsp-format = {
+      enable = true;
+    };
+
+    plugins.which-key.settings.spec = [
+      {
+        __unkeyed = "<leader>j";
+        mode = "n";
+        desc = "Go to next diagnostic";
+      }
+      {
+        __unkeyed = "<leader>k";
+        mode = "n";
+        desc = "Go to prev diagnostic";
+      }
+      {
+        __unkeyed = "gd";
+        mode = "n";
+        desc = "Go to [d]efinition";
+      }
+      {
+        __unkeyed = "gD";
+        mode = "n";
+        desc = "Go to references";
+      }
+      {
+        __unkeyed = "gt";
+        mode = "n";
+        desc = "Go to type definition";
+      }
+      {
+        __unkeyed = "gi";
+        mode = "n";
+        desc = "Go to implementation";
+      }
+      {
+        __unkeyed = "gr";
+        mode = "n";
+        desc = "Rename";
+      }
+      {
+        __unkeyed = "K";
+        mode = "n";
+        desc = "Hover";
+      }
+    ];
+  };
+}

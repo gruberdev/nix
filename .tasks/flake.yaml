@@ -1,0 +1,175 @@
+version: "3"
+
+vars:
+  DESKTOP_IP: 192.168.2.6
+env:
+  NIX_CONFIG: "experimental-features = nix-command flakes"
+
+includes:
+  git:
+    taskfile: ./git.yaml
+    deps: [reqs]
+    aliases: [commit, save]
+
+tasks:
+  default:
+    summary: |
+      Default task that updates your Nix/Home-Manager configuration
+    cmds:
+      - task: git
+      - task: update:desktop
+      - task: update:home
+
+  reqs:
+    internal: true
+    cmds:
+      - nix-shell -p go-task sops git
+
+  work:
+    desc: Update home-manager configuration
+    platforms: [linux/amd64]
+    cmds:
+      - >
+        sudo
+        nixos-rebuild switch
+        --show-trace
+        --use-remote-sudo
+        --flake .#work
+      - task: update:home
+    ignore_error: true
+
+  net:
+    desc: Update home-manager configuration
+    cmds:
+      - >
+        sudo
+        nixos-rebuild switch
+        --show-trace
+        --use-remote-sudo
+    requires:
+      vars: [NIX_VERSION]
+
+  wsl:
+    desc: Update home-manager configuration
+    platforms: [linux/amd64]
+    cmds:
+      - >
+        sudo
+        nixos-rebuild switch
+        --show-trace
+        --flake .#wsl
+      - task: update:home
+    requires:
+      vars: [NIX_VERSION]
+
+  wsl:boot:
+    desc: Update home-manager configuration
+    platforms: [linux/amd64]
+    cmds:
+      - >
+        sudo
+        nixos-rebuild boot
+        --show-trace
+        --flake .#wsl
+      - task: update:home
+    requires:
+      vars: [NIX_VERSION]
+
+  eval:desktop:
+    internal: true
+    desc: update home-manager configuration
+    platforms: [linux/amd64]
+    cmds:
+      - >
+        sudo
+        nixos-rebuild switch
+        --show-trace
+        --use-remote-sudo
+        --flake .#desktop
+    ignore_error: true
+    requires:
+      vars: [nix_version]
+
+  remote:
+    desc: Update home-manager configuration
+    platforms: [linux/amd64]
+    cmds:
+      - >
+        sudo
+        nixos-rebuild switch
+        --show-trace
+        --target-host root@{{.DESKTOP_IP}}
+        --build-host localhost
+        --use-remote-sudo
+        --flake .#desktop
+    ignore_error: true
+
+  update:desktop:
+    desc: Update home-manager configuration
+    platforms: [linux/amd64]
+    cmds:
+      - >
+        nixos-rebuild switch
+        --use-remote-sudo
+        --option accept-flake-config true
+        --show-trace
+        --flake .#desktop
+    ignore_error: true
+    requires:
+      vars: [NIX_VERSION]
+
+  rollback:
+    desc: Update home-manager configuration
+    cmds:
+      - >
+        sudo
+        nixos-rebuild switch
+        --rollback
+
+  flake:
+    desc: Update home-manager configuration
+    cmds:
+      - nix flake update
+
+  update:pkgs:
+    desc: update home-manager configuration
+    platforms: [linux/amd64]
+    cmds:
+      - nh home switch --file .#nixos
+
+  update:home:
+    desc: update home-manager configuration
+    platforms: [linux/amd64]
+    cmds:
+      - >
+        nix
+        --option trusted-users "${USER}"
+        --option accept-flake-config true
+        --option download-buffer-size 13421772893
+        --show-trace
+        --option eval-cache false
+        run home-manager/release-{{.NIX_VERSION}}
+        -- switch -b backup --flake .#nixos --show-trace
+    requires:
+      vars: [NIX_VERSION]
+
+  dry-run:
+    desc: Dry-run NixOS and Home Manager configuration updates
+    platforms: [linux/amd64]
+    cmds:
+      - >
+        sudo
+        nixos-rebuild dry-activate
+        --use-remote-sudo
+        --show-trace
+        --flake .#desktop
+      - >
+        nix
+        --option accept-flake-config true
+        --option allow-import-from-derivation true
+        --show-trace
+        run home-manager/release-{{.NIX_VERSION}}
+        -- switch --dry-run -b backup --flake .#nixos
+    requires:
+      vars: [NIX_VERSION]
+    ignore_error: true

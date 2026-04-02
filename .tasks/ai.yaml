@@ -1,0 +1,76 @@
+version: "3"
+vars:
+  PROMPT:
+    sh: |
+      prompt=$(cat $HOME/.config/Claude/autoplan.txt)
+      echo -e "$prompt"
+  MODEL:
+    sh: |
+      # Parse CLI arguments dynamically to extract claude model using regex
+      args_string="$*"
+
+      # Look for any claude-sonnet-* pattern in arguments
+      sonnet_model=$(echo "$args_string" | jq -R 'split(" ") | map(select(test("^claude-sonnet-.*"))) | .[0] // empty')
+
+      # Look for any claude-* pattern in arguments
+      claude_model=$(echo "$args_string" | jq -R 'split(" ") | map(select(test("^claude-.*"))) | .[0] // empty')
+
+      if [ -n "$sonnet_model" ] && [ "$sonnet_model" != "null" ]; then
+        echo "$sonnet_model" | jq -r .
+      elif [ -n "$claude_model" ] && [ "$claude_model" != "null" ]; then
+        echo "$claude_model" | jq -r .
+      else
+        # Default to latest sonnet if no model specified
+        echo "claude-sonnet-4-20250514"
+      fi
+
+tasks:
+  default:
+    dir: ./
+    interactive: true
+    cmds:
+      - echo 'Initializing Claude...'
+      - echo 'Using model {{.MODEL}}'
+      - |
+        claude \
+        --append-system-prompt "{{.PROMPT}}" \
+        --model {{.MODEL}} \
+        --ide \
+        {{.CLI_ARGS}} ultrathink
+  nix:
+    internal: true
+    dir: ./
+    cmds:
+      - |
+        claude \
+        --append-system-prompt "{{.PROMPT}}" \
+        --model {{.MODEL}} \
+        --add-dir $PWD/modules \
+        --add-dir $PWD/homes \
+        --add-dir $PWD/pkgs \
+        --permission-mode bypassPermissions \
+        "Use nix subagent and git to assess what has changed \
+        and whether it fits the other modules and overall structure \
+        if it doesn't, confirm the user is ok with it. Otherwise \
+        apply Alejandra and look for potential conflicts this new \
+        changes might bring and write to the user. Return an error \
+        if you see any conflicts ultrathink"
+
+  validate:
+    deps: [nix]
+    cmds:
+      - echo "Finished"
+
+  list-models:
+    desc: "Show usage for dynamic model selection"
+    cmds:
+      - echo "Dynamic model selection with regex matching:"
+      - echo "  Defaults to claude-sonnet-4-20250514"
+      - echo "  Prioritizes claude-sonnet-* patterns"
+      - echo "  Accepts any claude-* model identifier"
+      - echo ""
+      - echo "Usage examples:"
+      - echo "  task ai                                    # Uses default sonnet"
+      - echo "  task ai claude-sonnet-3-5-20241022        # Uses specific sonnet version"
+      - echo "  task ai claude-haiku-20240307             # Uses haiku model"
+      - echo "  task ai claude-opus-20240229              # Uses opus model"

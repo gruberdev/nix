@@ -1,0 +1,64 @@
+version: "3"
+silent: true
+
+tasks:
+  build:
+    desc: "Build NixOS installer ISO"
+    cmds:
+      - nix build .#nixosConfigurations.installer.config.system.build.isoImage
+      - echo "✓ ISO built at result/iso/nixos-disko-installer.iso"
+      - ls -lh result/iso/
+
+  write:
+    desc: "Write ISO to USB device (specify DEVICE=/dev/sdX)"
+    cmds:
+      - |
+        if [ -z "$DEVICE" ]; then
+          echo "Error: Please specify USB device with DEVICE=/dev/sdX"
+          echo "Available devices:"
+          lsblk -d -o NAME,SIZE,MODEL | grep -E "sd[a-z]|nvme"
+          exit 1
+        fi
+      - |
+        echo "Writing ISO to $DEVICE..."
+        sudo dd if=result/iso/nixos-disko-installer.iso of=$DEVICE bs=4M status=progress oflag=sync
+        echo "✓ ISO written to $DEVICE"
+    requires:
+      vars: [DEVICE]
+
+  install:
+    desc: "Complete NixOS installation with disko (desktop)"
+    cmds:
+      - |
+        echo "Partitioning disk with disko..."
+        sudo nix --experimental-features "nix-command flakes" run github:nix-community/disko/latest -- --mode disko --flake .#desktop
+        echo "✓ Disk partitioned and formatted"
+      - |
+        echo "Installing NixOS..."
+        sudo nixos-install --flake '.#desktop'
+        echo "✓ NixOS installed"
+      - |
+        echo "Installation complete! Reboot to start your new system."
+
+  install-work:
+    desc: "Install work configuration"
+    cmds:
+      - |
+        echo "Partitioning disk with disko..."
+        sudo nix --experimental-features "nix-command flakes" run github:nix-community/disko -- --mode disko ./hosts/work/disk.nix
+        echo "✓ Disk partitioned and formatted"
+      - |
+        echo "Installing NixOS..."
+        sudo nixos-install --flake '.#work'
+        echo "✓ NixOS installed"
+      - |
+        echo "Installation complete! Reboot to start your new system."
+
+  rescue:
+    desc: "Free memory and retry installation on minimal ISO"
+    cmds:
+      - sudo nix-collect-garbage -d
+      - sudo nix store gc
+      - sudo mount -t tmpfs -o size=8G tmpfs /tmp
+      - echo "✓ Memory cleared and temporary space mounted"
+      - echo "Now run 'task installer:install' to continue"

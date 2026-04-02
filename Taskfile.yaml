@@ -1,0 +1,35 @@
+version: "3"
+silent: true
+
+includes:
+  nix:
+    taskfile: ./.tasks/flake.yaml
+    aliases: [flake, setup, install]
+  secrets:
+    taskfile: ./.tasks/secrets.yaml
+    aliases: [keys, sops, secret]
+  git:
+    taskfile: ./.tasks/git.yaml
+    aliases: [commit, save]
+  installer:
+    taskfile: ./.tasks/installer.yaml
+    aliases: [iso, build]
+  ai:
+    taskfile: ./.tasks/ai.yaml
+    aliases: [claude, code, automate, autogen]
+env:
+  NIX_VERSION: "25.05"
+
+tasks:
+  default:
+    cmds:
+      - task: git
+      - task: secrets:update
+      - task: nix
+
+  work:
+    cmds:
+      - task: git
+      - task: nix:work
+
+dotenv: [".env", "{{.ENV}}/.env.", "{{.HOME}}/.env"]

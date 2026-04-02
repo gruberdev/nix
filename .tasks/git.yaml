@@ -1,0 +1,41 @@
+version: "3"
+vars:
+  GIT_AUTHOR_NAME: gruberdev
+  GIT_AUTHOR_EMAIL: contact@gruber.dev.br
+  GIT_COMMIT:
+    sh: git log -n 1 --format=%h
+  CHANGED_FILES:
+    sh: git diff --name-only --staged || echo ""
+  COMMIT_MSG:
+    sh: |
+      diff=$(git diff --staged)
+      files=$(git diff --name-only --staged | tr '\n' ' ')
+      echo "Generate ONLY a concise git commit message (max 180 chars) describing what changed. No extra text or explanation. Files: $files. Diff: $diff" | nix run github:sadjow/claude-code-nix -- --print | tail -1 || echo "Update $files"
+
+tasks:
+  default:
+    desc: Update home-manager configuration with smart commit analysis
+    dir: ./
+    cmds:
+      - echo 'Using Git Author Name {{.GIT_AUTHOR_NAME}}'
+      - echo 'Using Git Author Email {{.GIT_AUTHOR_EMAIL}}'
+      - git config user.email "{{.GIT_AUTHOR_EMAIL}}"
+      - git config user.name "{{.GIT_AUTHOR_NAME}}"
+      - git pull --all
+      - git add .
+      - task: analyze-changes
+      - git commit -S -a -m "{{.COMMIT_MSG}}"
+      - git pull --all
+      - git push
+    ignore_error: true
+
+  analyze-changes:
+    desc: Analyze repository changes for smart commit messages
+    cmds:
+      - echo "Analyzing repository changes..."
+      - 'echo "Changed files: {{.CHANGED_FILES}}"'
+      - 'echo "Changes summary: {{.CHANGES_SUMMARY}}"'
+      - echo "Generating commit message based on diff analysis..."
+      - echo "---"
+      - echo "{{.DIFF_OUTPUT}}"
+      - echo "---"
